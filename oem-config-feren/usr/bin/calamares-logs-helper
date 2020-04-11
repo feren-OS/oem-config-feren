@@ -1,0 +1,20 @@
+#!/bin/sh
+
+root=/
+install_dir=/var/log/installer
+[ -d $install_dir ] || mkdir -p $install_dir
+
+cp /home/*/.cache/Calamares/session.log $install_dir/debug
+
+cp /var/log/syslog $install_dir/syslog
+
+gzip --stdout /var/lib/dpkg/status > $install_dir/initial-status.gz
+
+chmod -v 755 $install_dir/*
+
+#Run some final tasks to keep them from affecting OS speed later
+/usr/bin/feren-plasma-vm-adjustments
+/usr/bin/reset-feren-ppas
+
+/usr/bin/feren-oem-finish
+exit 0

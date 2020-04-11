@@ -1,0 +1,27 @@
+#! /bin/bash
+# Run oem-config on the first boot after shipping to the end user.
+
+CODE=0
+sleep 0.1
+/usr/bin/oem-config-dm vt7 :0 oemconfiguser || CODE=$?
+if [ -f /tmp/feren-oem-setup-complete ]; then
+    plymouthd >/dev/null 2>&1
+    plymouth --show-splash >/dev/null 2>&1
+    if getent passwd oemconfiguser >/dev/null; then
+        killall --user oemconfiguser -9 >/dev/null 2>&1 || true
+        userdel --force --remove oemconfiguser >/dev/null 2>&1 || true
+        rm -rf /oemconfiguser >/dev/null 2>&1 || true
+    fi
+    /bin/systemctl set-default graphical.target >/dev/null 2>&1 || true
+    /bin/systemctl --no-block isolate graphical.target >/dev/null 2>&1 || true
+    /bin/systemctl start graphical.target >/dev/null 2>&1 &
+    /usr/bin/reset-feren-ppas
+    /usr/bin/apt update
+    /bin/systemctl disable oem-config.service >/dev/null 2>&1 || true
+    /bin/systemctl disable oem-config.target >/dev/null 2>&1 || true
+    rm -f /lib/systemd/system/oem-config.* >/dev/null 2>&1 || true
+else
+    poweroff
+    sleep 3600
+    exit 1
+fi

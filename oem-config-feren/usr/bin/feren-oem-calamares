@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ -f /usr/bin/plasmashell ]; then
+    calamares -style Breeze
+elif [ -f /usr/bin/cinnamon ]; then
+    calamares -style gtk2
+else
+    calamares
+fi
