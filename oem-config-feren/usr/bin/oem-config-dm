@@ -366,13 +366,13 @@ class DM:
                     ['/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdevil'],
                     stdin=null, stdout=logfile, stderr=logfile,
                     preexec_fn=self.drop_privileges))
-            # onboard - if the DE isn't Plasmashell
-            if not self.shellcommand == "/usr/bin/plasmashell" and os.path.exists("/usr/bin/onboard"):
-                log('start onboard')
-                extras.append(subprocess.Popen(
-                    ['/usr/bin/onboard'],
-                    stdin=null, stdout=logfile, stderr=logfile,
-                    preexec_fn=self.drop_privileges))
+        # onboard - if the DE isn't Plasmashell
+        if not self.shellcommand == "/usr/bin/plasmashell" and os.path.exists("/usr/bin/onboard"):
+            log('start onboard')
+            extras.append(subprocess.Popen(
+                ['/usr/bin/onboard'],
+                stdin=null, stdout=logfile, stderr=logfile,
+                preexec_fn=self.drop_privileges))
 
         log('start greeter')
         greeter = subprocess.Popen(
