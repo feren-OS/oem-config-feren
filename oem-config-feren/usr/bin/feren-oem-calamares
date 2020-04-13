@@ -1,9 +1,12 @@
 #!/bin/bash
 
 if [ -f /usr/bin/plasmashell ]; then
+    #Launch Calamares with the Breeze Style
     calamares -style Breeze
 elif [ -f /usr/bin/cinnamon ]; then
+    #Launch Calamares with the gtk2 Style to be consistent with how Qt5 applications are styled in Feren OS Classic
     calamares -style gtk2
 else
+    #The DE isn't supported, so frig it, Fusion it is.
     calamares
 fi

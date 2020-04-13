@@ -7,11 +7,12 @@ if [ ! "$(whoami)" = "root" ]; then
 fi
 
 if [ "$1" = "--prepare-for-iso" ]; then
-    #Hide the shortcuts on the produced Feren OS ISOs' Live Sessions
+    #Hide the shortcuts on the produced Feren OS ISOs' Live Sessions - not used, but might come in useful if anyone ever even has a use for that
     rm -f /usr/share/applications/oem-prepare.desktop /usr/share/polkit-1/actions/org.feren.oem-setup.prepare.policy
     exit 0
 fi
 
+#Set the oem-id value for the OEM Config oem-id value you're probably used to seeing in Ubuntu-based OEM Install processes
 if [ "$1" = "--automatic" ]; then
     cpuname="$2"
 elif [ ! -z "$1" ]; then
@@ -65,6 +66,7 @@ else
 Please note that user 'oem' will be completely wiped on the next shutdown/reboot/etc." --no-wrap
 fi
 
+#Remove the files that allowed this command to be run in the first place so that this process cannot be re-done until the user reinstalls oem-config-feren, which is only likely to happen after the process has been completely finished
 rm -f /usr/share/applications/oem-prepare.desktop /usr/bin/oem-feren-prepare /usr/share/polkit-1/actions/org.feren.oem-setup.prepare.policy
 
 #Done

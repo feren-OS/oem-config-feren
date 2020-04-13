@@ -4,8 +4,10 @@
 
 #Revert restrictions
 #Remove all the restrictions and OEM Setup customisations
-rm -f /etc/dconf/db/local.d/locks/00_oemsetup-locks /usr/share/glib-2.0/schemas/oem-config.gschema.override /etc/dconf/profile/user /usr/local/sbin/kcmshell5 /etc/xdg/kdeglobals /etc/xdg/kded5rc /etc/xdg/khotkeysrc /etc/xdg/kglobalshortcutsrc /root/.config/kdeglobals /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js
+rm -f /etc/dconf/db/local.d/locks/00_oemsetup-locks /usr/share/glib-2.0/schemas/oem-config.gschema.override /etc/dconf/profile/user /usr/local/sbin/kcmshell5 /etc/xdg/kdeglobals /etc/xdg/kded5rc /etc/xdg/khotkeysrc /etc/xdg/kglobalshortcutsrc /root/.config/kdeglobals
+#Update DCONF
 dconf update
+#Recompile gsettings/DCONF schemas
 glib-compile-schemas /usr/share/glib-2.0/schemas
 #Plasma stuff
 #Restore the kdeglobals file - Plasma
@@ -28,15 +30,12 @@ fi
 if [ -f /root/.config/kdeglobals-backup ]; then
     mv -f /root/.config/kdeglobals-backup /root/.config/kdeglobals
 fi
-#Restore the default panel layout - Plasma
-if [ -f /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js.bak ]; then
-    mv -f /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js.bak /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js
-fi
-#Remove the installer, etc.
+#Make sure the system language is properly set
 /usr/bin/feren-languagesetter
+#Remove the installer, etc.
 dpkg --purge calamares feren-calamares-languagesetter calamares-branding-feren oem-config-feren calamares-settings-ubuntu-common feren-calamares-global-settings
-#Add a marker for feren-oem-session to indicate a successful install
-touch /tmp/feren-oem-setup-complete
 
-#Update the repositories ready for the first login
+#Add a marker for feren-oem-session to indicate a successful install - REQUIRED otherwise it won't realise the setup process is finished and will shut down the system instead when Calamares exits
+touch /tmp/feren-oem-setup-complete
+#Exit with Code 0
 exit 0

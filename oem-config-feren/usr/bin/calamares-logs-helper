@@ -4,17 +4,21 @@ root=/
 install_dir=/var/log/installer
 [ -d $install_dir ] || mkdir -p $install_dir
 
-cp /home/*/.cache/Calamares/session.log $install_dir/debug
+#Make a copy of the System Log during OEM Config alongside the System Log from during installation
+cp /var/log/syslog $install_dir/syslogoem
 
-cp /var/log/syslog $install_dir/syslog
-
+#Overwrite the inital-status.gz file as the 'initial' state has changed from initial state after installation to initial state of usable OS
 gzip --stdout /var/lib/dpkg/status > $install_dir/initial-status.gz
 
+#Make this folder readable by normal users as otherwise MintInstall-based Software Centers will die a horrible death when ran
 chmod -v 755 $install_dir/*
 
-#Run some final tasks to keep them from affecting OS speed later
+#Run some final tasks (for Feren OS) to keep them from affecting bootup speed later
+#Run Plasma VM Adjustments since it's configured to only run in this environment and whenever otherwise required to shave a measily bit of boot time
 /usr/bin/feren-plasma-vm-adjustments
+#Reset the Feren OS Repositories just in case the user recovered their system from an installation failure during the point of installation when CDROM is the only repository on the system
 /usr/bin/reset-feren-ppas
 
+#Run the OEM Config cleanup script
 /usr/bin/feren-oem-finish
 exit 0

@@ -8,6 +8,9 @@ if [ -d /home/oem ]; then
     deluser oem
     rm -rf /home/oem
 fi
+#Remove oemconfiguser's Desktop Icons
+rm -rf /oemconfiguser/Desktop
+mkdir /oemconfiguser/Desktop
 #Pre-emptively make .dbus folder and make it owned by the user to prevent plasmashell launching issues within the environment
 mkdir /oemconfiguser/.dbus
 chown -hR oemconfiguser:oemconfiguser /oemconfiguser
@@ -17,6 +20,7 @@ sed -i '/^autologin-user=/d' /etc/lightdm/lightdm.conf
 
 #Add restrictions
 
+#We don't really care about it complaining about directories already existing since, well, no one will see this in any logs anyway, most likely.
 mkdir /etc/dconf
 mkdir /etc/dconf/db
 mkdir /etc/dconf/db/local.d
@@ -59,14 +63,18 @@ if [ -f /usr/bin/plasmashell ]; then
     if [ -f /root/.config/kdeglobals ]; then
         cp -f /root/.config/kdeglobals /root/.config/kdeglobals-backup
     fi
+    #Make oemconfiguser's .config folder if there isn't already one pre-made
     if [ ! -d /oemconfiguser/.config ]; then
         mkdir /oemconfiguser/.config
     fi
     #Push pre-made Plasma config files to the oemconfiguser
     cp -f /usr/share/feren-oem-config/plasma-layout/plasma-org.kde.plasma.desktop-appletsrc /oemconfiguser/.config/plasma-org.kde.plasma.desktop-appletsrc
+    #Make oemconfiguser own them
     chown -h oemconfiguser:oemconfiguser /oemconfiguser/.config/plasma-org.kde.plasma.desktop-appletsrc
+    #Once again... we're specifying a kactivitymanagerdrc file pre-made because otherwise the disabled desktop icons (to slightly speed up Plasmashell load times) tweak has a near-impossible chance of actually taking effect
     cp -f /usr/share/feren-oem-config/plasma-layout/kactivitymanagerdrc /oemconfiguser/.config/kactivitymanagerdrc
     chown -h oemconfiguser:oemconfiguser /oemconfiguser/.config/kactivitymanagerdrc
+    #Force the Feren OS colour scheme onto oemconfiguser rather than letting them use the Breeze colour scheme
     /bin/echo '[ColorEffects:Disabled]
 ChangeSelectionColor=
 Color=56,56,56
@@ -181,6 +189,7 @@ inactiveBackground=229,229,229
 inactiveBlend=238,238,238
 inactiveForeground=73,73,73' > /oemconfiguser/.config/kdeglobals
     chown -h oemconfiguser:oemconfiguser /oemconfiguser/.config/kdeglobals
+    #Force windows to be centered in this environment for... visual niceity, I guess. (shrug)
     /bin/echo '[1]
 Description=Force Centered Windows (OEM Config Shell)
 ignoregeometry[$d]
@@ -215,7 +224,7 @@ wmclass[$d]
 wmclasscomplete[$d]
 wmclassmatch[$d]' > /oemconfiguser/.config/kwinrulesrc
     chown -h oemconfiguser:oemconfiguser /oemconfiguser/.config/kwinrulesrc
-    #Append restrictions to the kdeglobals file, or create a new one if there isn't one already
+    #Add restrictions to the kdeglobals
     /bin/echo '[KDE Action Restrictions][$i]
 action/kwin_rmb=false
 plasma/allow_configure_when_locked=false
@@ -363,6 +372,7 @@ activeForeground=0,0,0
 inactiveBackground=229,229,229
 inactiveBlend=238,238,238
 inactiveForeground=73,73,73' > /etc/xdg/kdeglobals
+    #Just in case, also make Root use the Feren OS colour scheme by default instead of Breeze
     /bin/echo '[ColorEffects:Disabled]
 ChangeSelectionColor=
 Color=56,56,56
@@ -483,6 +493,7 @@ activeForeground=0,0,0
 inactiveBackground=229,229,229
 inactiveBlend=238,238,238
 inactiveForeground=73,73,73' > /root/.config/kdeglobals
+    #Pre-disable all unimportant kded5 background services, just in case, for OEM Config
     /bin/echo '[Module-appmenu][$i]
 autoload=false
 
@@ -548,6 +559,7 @@ autoload=true
 
 [Module-wacomtablet][$i]
 autoload=true' > /etc/xdg/kded5rc
+    #Same thing with keyboard shortcuts
     /bin/echo '[Shortcuts][$i]
 Activate Next Tab[$d]
 Activate Previous Tab[$d]
@@ -802,41 +814,28 @@ Toggle screen map selection=Meta+Ctrl+M,Meta+Ctrl+M,Toggle between all screens
 Toggle stylus mode=Meta+Ctrl+S,Meta+Ctrl+S,Toggle the Stylus Tool Relative/Absolute
 Toggle touch tool=,Meta+Ctrl+T,Enable/Disable the Touch Tool
 _k_friendly_name=Wacom Tablet' > /etc/xdg/kglobalshortcutsrc
+    #Also copy those configs to oemconfiguser's .config since there's a bug, IIRC, in Plasma where it ignores /etc/xdg's kglobalshortcutsrc file when looking for defaults if the user doesn't have their own copy of the file in their .config folder
     cp -f /etc/xdg/kglobalshortcutsrc /oemconfiguser/.config/kglobalshortcutsrc
-    #Backup the current default panel layout and install a new one just for OEM Setup User
-    mv /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js.bak
-    cp -f /usr/share/feren-oem-config/plasma-layout/layout.js /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js
-    #Prevent automatic locking, since the user cannot be unlocked
+    
+    #Prevent automatic locking, since the user cannot be unlocked as no password is set but also the non-existant password is not unset
     /bin/echo "[Daemon]
 Autolock=false" > /oemconfiguser/.config/kscreenlockerrc
-    #Make dialogs to get in the way of running commands that can get the user out of the point of focus easily
+    #Disable certain functions that can allow the user to escape the restrictions enforced by OEM Config
     echo "#!/bin/bash
 exit 1" > /usr/local/sbin/kcmshell5
     #Make this executable so it gets in the way of commands running them by just their command names
     chmod +x /usr/local/sbin/kcmshell5
-    cd /etc/xdg/autostart
-    #Disable all autostarts, excluding a few super-necessary autostarts
-    for file in *.desktop; do
-        if [ ! "$file" = "powerdevil.desktop" ] && [ ! "$file" = "feren-onboard.desktop" ] && [ ! "$file" = "orca-autostart.desktop" ] && [ ! "$file" = "org.kde.plasmashell.desktop" ]; then
-            cp -f "/etc/xdg/autostart/$file" "/oemconfiguser/.config/autostart/$file"
-            kwriteconfig5 --file "/oemconfiguser/.config/autostart/$file" --group "Desktop Entry" --key "NoDisplay" "true"
-            kwriteconfig5 --file "/oemconfiguser/.config/autostart/$file" --group "Desktop Entry" --key "Hidden" "true"
-        fi
-    done
     cd
 fi
 
 #Remove the files that allowed for preparing for OEM Setup because they're no longer needed and could cause problems if relaunched too before OEM Config is complete
 rm -f /usr/bin/feren-oem-prepremove /usr/share/feren-oem-config/systemd/feren-oem-preparations.service
 
-#Mark the main oem-config packages as manually installed so the system doesn't accidentally remove them as 'no longer needed'
-apt-get install -y calamares calamares-branding-feren feren-calamares-global-settings
-
 #Disable and remove this SystemD Service
 systemctl disable feren-oem-preparations.service
 rm -f /lib/systemd/system/feren-oem-preparations.service
 
-#Use Cinnamon System Settings graphic if on Feren OS Classic for Calamares
+#Use Cinnamon System Settings graphic if on Feren OS Classic for Calamares's Feren OS Installation Slideshow
 if [ ! -f /usr/bin/plasmashell ] && [ -f /usr/bin/cinnamon ]; then
     rm -f /etc/calamares/branding/feren/slide-items/slide8-item.png
     mv /etc/calamares/branding/feren/slide-items/slide8-item-cinnamon.png /etc/calamares/branding/feren/slide-items/slide8-item.png

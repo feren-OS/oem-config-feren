@@ -209,6 +209,7 @@ class DM:
         except OSError:
             plymouth_running = False
         if plymouth_running:
+            #Get rid of Plymouth, clear the screen of verbose boot, and print out a string letting the user know the OS is working on stuff and hasn't crashed or anything - if we didn't kill Plymouth here Plymouth would freeze until the user's graphical session is up (when it'd then be replaced with that graphical session entirely)
             subprocess.call(['plymouth', 'deactivate'])
             subprocess.call(['plymouth', 'quit'])
             subprocess.call('clear',shell=True)
@@ -304,15 +305,16 @@ class DM:
             # Force Qt5 KDE theming to load for kwin and friends.
             os.environ["QT_QPA_PLATFORMTHEME"] = "kde"
         if not os.path.isfile('/usr/bin/plasmashell') and os.path.isfile('/usr/bin/cinnamon'):
-            # Force Cinnamon theme engine to load for Calamares themeing.
+            # Force Cinnamon theme engine to load for Calamares gtk2 QStyle themeing.
             extras.append(subprocess.Popen(
                '/usr/lib/x86_64-linux-gnu/cinnamon-settings-daemon/csd-xsettings',
                 stdin=null, stdout=subprocess.PIPE, stderr=logfile,
                 preexec_fn=self.drop_privileges, universal_newlines=True))
             time.sleep(2)
+            #Sleeping 2 seconds means Calamares can't start too early, as if it starts too early it'll use the fallback GTK2 theme in the gtk2 QStyle
         
         # Session bus, apparently needed by most interfaces now
-        #This second running of it only seems to be neccessary for Plasmashell to load up
+        #This second running of it is because it doesn't seem to last on the first run for Plasmashell to be able to use it to function
         if self.shellcommand == "/usr/bin/plasmashell" and ('DBUS_SESSION_BUS_ADDRESS' not in os.environ and
                 os.path.isfile('/usr/bin/dbus-launch')):
             log('dbus')
@@ -330,7 +332,8 @@ class DM:
             dbus_subp.wait()
         
         if not self.shellcommand == "/usr/bin/plasmashell" and 'access=v1' not in proc_cmdline:
-            #Paint a background manually for non-Plasma OEM Setups
+            #Paint a background manually for non-Plasma OEM Setups via the Qt Background Painting program from ubiquity-dm
+            #NOTE: Don't even bother trying to run this in a session where you ran this DM program while the OS is fully booted up - I tried that and the background just becomes white - every other scenario, including use of this DM program as it's intended to be used, has the background entirely correctly painted
             log('paint background')
             extras.append(subprocess.Popen(
                ['oem-config-setbg', '/usr/share/feren-os/images/login'],
@@ -343,30 +346,33 @@ class DM:
             wm_cmd, stdin=null, stdout=logfile, stderr=logfile,
             preexec_fn=self.drop_privileges)
             
-        if self.shellcommand:
+        if self.shellcommand: #Returns False only if the variable = ""
             log('start setup shell')
             if self.shellcommand == "/usr/bin/plasmashell" and os.path.exists("/usr/lib/x86_64-linux-gnu/libexec/kactivitymanagerd"):
+                #Only running kactivitymanagerd because it's also required by Plasmashell to function
                 subprocess.Popen(
                     "/usr/lib/x86_64-linux-gnu/libexec/kactivitymanagerd", stdin=null, stdout=logfile, stderr=logfile,
                 preexec_fn=self.drop_privileges)
+            #Start Feren OS's Onboard Implementation into Plasma for the OEM Config Plasmashell instance
             if self.shellcommand == "/usr/bin/plasmashell" and os.path.exists("/usr/bin/feren-launch-onboard"):
                 subprocess.Popen(
                     "/usr/bin/feren-launch-onboard", stdin=null, stdout=logfile, stderr=logfile,
                 preexec_fn=self.drop_privileges)
             if os.path.isfile(self.shellcommand):
+                #Now to start the DE itself
                 de_cmd = [self.shellcommand]
             deproc = subprocess.Popen(
                 de_cmd, stdin=null, stdout=logfile, stderr=logfile,
                 preexec_fn=self.drop_privileges)
 
-            # powerdevil - if the DE is Plasmashell
+            # powerdevil - if the DE is Plasmashell - this is only here because I put Battery and Brightness on the panel
             if self.shellcommand == "/usr/bin/plasmashell" and os.path.exists("/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdevil"):
                 log('start powerdevil')
                 extras.append(subprocess.Popen(
                     ['/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdevil'],
                     stdin=null, stdout=logfile, stderr=logfile,
                     preexec_fn=self.drop_privileges))
-        # onboard - if the DE isn't Plasmashell
+        #Onboard instance, mainly for touch-only devices, on OEM Configs that don't use Plasmashell
         if not self.shellcommand == "/usr/bin/plasmashell" and os.path.exists("/usr/bin/onboard"):
             log('start onboard')
             extras.append(subprocess.Popen(
@@ -375,10 +381,13 @@ class DM:
                 preexec_fn=self.drop_privileges))
 
         log('start greeter')
+        #Start Calamares itself - CBA to move the code from that simple bash script over to this chunk of code to give it its different QStyle choices, to here ya go instead.
         greeter = subprocess.Popen(
             "/usr/bin/feren-oem-calamares", stdin=null, stdout=logfile, stderr=logfile)
         ret = greeter.wait()
         log('greeter exited with code {}'.format(ret))
+        
+        #ret = greeter.wait() means the code will only advance once Calamares is closed (by both Cancelling or a successful Setup)
 
         def kill_if_exists(pid, signum):
             try:
@@ -392,6 +401,7 @@ class DM:
             for extra in extras:
                 kill_if_exists(extra.pid, signal.SIGKILL)
 
+        #Kill Every Process we just ran to make the 'logout' process a little more clean
         kill_if_exists(wmproc.pid, signal.SIGTERM)
         if self.shellcommand:
             kill_if_exists(deproc.pid, signal.SIGTERM)
@@ -453,12 +463,14 @@ def main():
         return 1
     vt, display, username = sys.argv[1:4]
     
+    #Decide on the DE to use (optionally) in this environment
     if os.path.isfile('/usr/bin/plasmashell'):
         shellcommand = "/usr/bin/plasmashell"
         #Use tightly restricted Plasmashell in Feren OS
     else:
         shellcommand = ""
         #No desktop shell is used in non-Plasma Feren OS
+    #Decide on the Window Manager to use in this environment
     if os.path.isfile('/usr/bin/kwin'):
         windowmanager = "/usr/bin/kwin"
         #Use KWin for Feren OS OEM Config
