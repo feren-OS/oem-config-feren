@@ -14,6 +14,7 @@ if [ -f /tmp/feren-oem-setup-complete ]; then
     if getent passwd oemconfiguser >/dev/null; then
         killall --user oemconfiguser -9 >/dev/null 2>&1 || true
         userdel --force --remove oemconfiguser >/dev/null 2>&1 || true
+        delgroup oemconfiguser >/dev/null 2>&1 || true
         rm -rf /oemconfiguser >/dev/null 2>&1 || true
     fi
     #Undo our SystemD tweak to make OEM Config run on boot and tell the system to finish off the standard boot process by launching graphical.target manually
