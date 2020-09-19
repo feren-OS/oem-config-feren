@@ -17,10 +17,9 @@ if [ -f /tmp/feren-oem-setup-complete ]; then
         delgroup oemconfiguser >/dev/null 2>&1 || true
         rm -rf /oemconfiguser >/dev/null 2>&1 || true
     fi
-    #Undo our SystemD tweak to make OEM Config run on boot and tell the system to finish off the standard boot process by launching graphical.target manually
+    #Undo our SystemD tweak to make OEM Config run on boot and tell the system to use the standard boot process on next boot
     /bin/systemctl set-default graphical.target >/dev/null 2>&1 || true
-    /bin/systemctl --no-block isolate graphical.target >/dev/null 2>&1 || true
-    /bin/systemctl start graphical.target >/dev/null 2>&1 &
+    plymouth display-message --text="Setup is finishing and will restart your computer..."
     #While that's working in the background and taking the user to the login screen, or their desktop, let's do some final cleanup, starting with resetting sources.list in case the user booted from an installation that failed at a point of installation when CDROM is the only repository on the file
     /usr/bin/reset-feren-ppas
     #Refresh the package repositories if possible
@@ -29,8 +28,14 @@ if [ -f /tmp/feren-oem-setup-complete ]; then
     /bin/systemctl disable oem-config.service >/dev/null 2>&1 || true
     /bin/systemctl disable oem-config.target >/dev/null 2>&1 || true
     rm -f /lib/systemd/system/oem-config.* >/dev/null 2>&1 || true
+    #LSB: Record successful boot for GRUB
+    /bin/systemctl start grub-common.service >/dev/null 2>&1 || true
+    clear
+    reboot &
+    sleep 3600
+    /bin/systemctl start graphical.target >/dev/null 2>&1
 else
-    poweroff
+    poweroff &
     sleep 3600
     exit 1
 fi
